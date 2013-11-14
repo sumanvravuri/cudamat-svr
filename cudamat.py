@@ -64,6 +64,7 @@ _cudamat.dot.restype = ct.c_int
 _cudamat.clip.restype = ct.c_int
 _cudamat.clip_max.restype = ct.c_int
 _cudamat.clip.restype = ct.c_int
+_cudamat.update_by_row_scalar.restype = ct.c_int
 
 def deprecated(func):
     """This is a decorator which can be used to mark functions
@@ -807,6 +808,18 @@ class CUDAMatrix(object):
             
         return target
 
+    def add_float_to_row(x, index_mat, scalar):
+        """
+        given a matrix mat of size n x d and index_mat of n x 1 with ints from 0 to d-1
+        function will perform mat[np.arange(n), index_mat] += scalar
+        """
+
+        err_code = _cudamat.add_float_to_row(x, index_mat, scalar)
+        if err_code:
+            raise generate_exception(err_code.value)
+            
+#        return self
+
 def empty(shape):
     """
     Creates and returns a new CUDAMatrix with the given shape.
@@ -869,7 +882,14 @@ def dot(m1, m2, target = None):
         raise generate_exception(err_code)
 
     return target
-
+def gemm_update(m1, m2, alpha, m0, beta):
+    """
+    sets m0 <- alpha * dot(m1,m2) + beta * m0  
+    """
+    err_code = _cudamat.dot(m1.p_mat, m2.p_mat, m0.p_mat, ct.c_float(beta), ct.c_float(alpha))
+    if err_code:
+        raise generate_exception(err_code)
+    
 def vdot(m1, m2):
     """
     Compute the vector dot product of matrices m1 and m2.
@@ -896,6 +916,34 @@ def sigmoid(mat, target = None):
         raise generate_exception(err_code)
 
     return target
+
+def update_by_dsigmoid(hidden, out):
+    """ out = out + hidden * (1 - hidden)
+    """
+    err_code = _cudamat.update_by_dsigmoid(hidden.p_mat, out.p_mat)
+    if err_code:
+        raise generate_exception(err_code)
+
+def tanh(mat, target = None):
+    """
+    Apply tanh to each element of the matrix mat.
+    """
+
+    if not target:
+        target = mat
+
+    err_code = _cudamat.apply_tanh(mat.p_mat, target.p_mat)
+    if err_code:
+        raise generate_exception(err_code)
+
+    return target
+
+def mult_by_dtanh(hidden, out):
+    """ out = out + hidden * (1 - hidden)
+    """
+    err_code = _cudamat.mult_by_dtanh(hidden.p_mat, out.p_mat)
+    if err_code:
+        raise generate_exception(err_code)
 
 def log(mat, target = None):
     """
@@ -995,7 +1043,19 @@ def clip(mat, min_val, max_val, target = None):
         raise generate_exception(err_code)
     
     return target
-
+def update_by_row_scalar(mat, vec, scalar, height, width, target = None):
+    """
+    given a matrix mat of size n x d and index_mat of n x 1 with ints from 0 to d-1
+    function will perform mat[np.arange(n), index_mat] += scalar
+    """
+    if not target:
+        target = mat
+        
+    err_code = _cudamat.update_by_row_scalar(mat.p_mat, vec.p_mat, target.p_mat,
+                                             ct.c_float(scalar), ct.c_uint(height),
+                                             ct.c_uint(width))
+    
+    return target
 def cuda_sync_threads():
     _cudamat.cuda_sync_threads()
 

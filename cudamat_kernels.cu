@@ -195,6 +195,17 @@ __global__ void kApplySigmoid(float* mat, float* target, unsigned int len) {
     }
 }
 
+__global__ void kApplyTanh(float* mat, float* target, unsigned int len) {
+    const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int numThreads = blockDim.x * gridDim.x;
+    float ex_plus, ex_minus; 
+    for (unsigned int i = idx; i < len; i += numThreads) {
+    	ex_plus = __expf(mat[i]);
+    	ex_minus = __expf(-mat[i]);
+        target[i] = (ex_plus - ex_minus) / (ex_plus + ex_minus);
+    }
+}
+
 __global__ void kLog(float* mat, float* target, unsigned int len) {
     const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int numThreads = blockDim.x * gridDim.x;
@@ -256,6 +267,41 @@ __global__ void kAddRowVector(float* mat, float* vec, float* tgtMat, unsigned in
     for (unsigned int i = idx; i < width * height; i += numThreads) {
         tgtMat[i] = mat[i] + vec[i / height];
     }
+}
+
+__global__ void kUpdateElemPerRowByScalar(float* mat, float* vec, float* tgtMat, float scalar, unsigned int width, unsigned int height) {
+	
+	const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	const unsigned int numThreads = blockDim.x * gridDim.x;
+	unsigned int col_idx, update_col_idx;
+	
+	for (unsigned int i = idx; i < width * height; i += numThreads) {
+		col_idx = i % width;
+		update_col_idx = (unsigned int) vec[i / width];
+		if (col_idx == update_col_idx)
+			tgtMat[i] = mat[i] + scalar;
+		else
+			tgtMat[i] = mat[i];
+		
+	}
+}
+
+__global__ void kUpdateByDSigmoid(float* hiddens, float* out, unsigned int len) {
+    const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int numThreads = blockDim.x * gridDim.x;
+
+    for (unsigned int i = idx; i < len; i += numThreads) {
+        out[i] *= hiddens[i] * (1 - hiddens[i]);
+    }	
+}
+
+__global__ void kMultByDTanh(float* hiddens, float* out, unsigned int len) {
+    const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int numThreads = blockDim.x * gridDim.x;
+
+    for (unsigned int i = idx; i < len; i += numThreads) {
+        out[i] *=  (1 - hiddens[i] * hiddens[i]);
+    }	
 }
 
 __global__ void kAddColMult(float* mat, float* vec, float* tgtMat, float mult,
@@ -396,3 +442,4 @@ __global__ void kClip(float* mat, float min_val, float max_val, float* target, u
             target[i] = mat[i];
     }
 }
+

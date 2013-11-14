@@ -358,7 +358,17 @@ def empty(shape):
 	if _isSequence(shape) or type(shape) == types.GeneratorType: shape = tuple(shape)
 	else: shape = (shape,)
 	return garray(_new_cm(_prodT(shape)), shape, None)
-
+def update_by_row_scalar(mat, vec, scalar, target = None):
+	return_target = False
+	if target == None:
+		target = empty(mat.shape)
+		return_target = True
+	assert mat.shape == target.shape
+	assert vec.shape == (1, vec.size)
+	_cudamat.update_by_row_scalar(mat._base_as_2d(), vec._base_as_2d(), scalar, mat.shape[0], mat.shape[1], target._base_as_2d())
+	
+	if return_target:
+		return target
 def zeros (shape): return tile(0, shape)
 def ones (shape): return tile(1, shape)
 
@@ -375,7 +385,10 @@ def fast_vdot(a1, a2):
 	return _cudamat.vdot(a1._base_as_row(), a2._base_as_row())
 def vdot(a1, a2): #hack for now
 	return sum(a1*a2) #dot(a1.reshape(1, a1.size), a2.reshape(a2.size, 1)).item()
-def dot(a1, a2):
+def gemm_update(m1, m2, alpha, m0, beta):
+	assert m1.ndim==m2.ndim==2
+	_cudamat.gemm_update(m2._base_as_2d(), m1._base_as_2d(), alpha, m0._base_as_2d(), beta)
+def dot(a1, a2, mm_ret = None):
 	# internally: for matrix-matrix multiplies only; vectors are treated like special cases.
 	a1 = as_garray(a1); a2 = as_garray(a2)
 	if a1.ndim==0 or a2.ndim==0: return a1*a2
@@ -388,7 +401,10 @@ def dot(a1, a2):
 	if a1.ndim==a2.ndim==2:
 		retShape = (a1.shape[0], a2.shape[1])
 		if a1.shape[1]==0: return zeros(retShape) # cudamat bug workaround
-		ret = empty(retShape)
+		if mm_ret == None:
+			ret = empty(retShape)
+		else:
+			ret = mm_ret
 		if ret.size!=0: _cudamat.dot(a2._base_as_2d(), a1._base_as_2d(), ret._base_as_2d())
 		return ret
 	if a1.ndim >= 2 and a2.ndim >= 2:
@@ -509,6 +525,26 @@ def clip(x, a_min, a_max, out=None):
 			_cudamat.clip(x._base, a_min, a_max, out._base)
 	return out
 
+def update_by_dsigmoid(hidden, out=None):
+	if out is None:
+		out = zeros(hidden.shape)
+	
+	_cudamat.update_by_dsigmoid(hidden._base_as_row(), out._base_as_row())
+
+def mult_by_dtanh(hidden, out=None):
+	if out is None:
+		out = zeros(hidden.shape)
+	
+	_cudamat.mult_by_dtanh(hidden._base_as_row(), out._base_as_row())
+# ------------------------------------------------------------------------------- function to handle labels
+
+def add_float_to_row(x, index_vec, scalar=1.0):
+	assert isinstance(x, garray)
+	assert isinstance(index_vec, garray)
+	assert len(x.shape) == 2
+	assert len(index_vec.shape) == 1 or (len(index_vec.shape) == 2 and index_vec.shape[1] == 1)
+
+	x._base.add_float_to_row(index_vec._base, scalar)
 # ------------------------------------------------------------------------------- elementwise operations
 
 def _elementwise__base(x, opGpu, opNp):

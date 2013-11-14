@@ -39,6 +39,7 @@ __global__ void kGreaterThanScalar(float* mat, float val, float* target, unsigne
 __global__ void kMaxColumnwise(float* mat, float* target, unsigned int width, unsigned int height);
 __global__ void kSign(float* mat, float* target, unsigned int len);
 __global__ void kApplySigmoid(float* mat, float* target, unsigned int len);
+__global__ void kApplyTanh(float* mat, float* target, unsigned int len);
 //__global__ void kApplyInvSigmoid(float* mat, float* target, unsigned int len);
 __global__ void kLog(float* mat, float* target, unsigned int len);
 __global__ void kExp(float* mat, float* target, unsigned int len);
@@ -48,6 +49,9 @@ __global__ void kReciprocal(float* mat, float* target, unsigned int len);
 __global__ void kAddColVector(float* mat, float* vec, float* tgtMat, unsigned int width, unsigned int height);
 __global__ void kAddRowVector(float* mat, float* vec, float* tgtMat, unsigned int width, unsigned int height);
 __global__ void kAddColMult(float* mat, float* vec, float* tgtMat, float mult, unsigned int width, unsigned int height);
+__global__ void kUpdateElemPerRowByScalar(float* mat, float* vec, float* tgtMat, float scalar, unsigned int width, unsigned int height);
+__global__ void kUpdateByDSigmoid(float* hiddens, float* out, unsigned int len);
+__global__ void kMultByDTanh(float* hiddens, float* out, unsigned int len);
 __global__ void kMultByColVector(float* mat, float* vec, float* tgtMat, unsigned int width, unsigned int height);
 __global__ void kMultByRowVector(float* mat, float* vec, float* tgtMat, unsigned int width, unsigned int height);
 __global__ void kAdd(float* a, float* b, float* dest, unsigned int numEls);

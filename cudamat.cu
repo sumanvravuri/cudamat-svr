@@ -655,6 +655,25 @@ extern int apply_sigmoid(cudamat* mat, cudamat* target) {
     return 0;
 }
 
+extern int apply_tanh(cudamat* mat, cudamat* target) {
+    unsigned int len = mat->size[0] * mat->size[1];
+
+    if (!mat->on_device || !target->on_device)
+        return ERROR_NOT_ON_DEVICE;
+
+    if (mat->size[0] != target->size[0] || mat->size[1] != target->size[1])
+        return ERROR_INCOMPATIBLE_DIMENSIONS;
+
+    kApplyTanh<<<NUM_VECTOR_OP_BLOCKS,NUM_VECTOR_OP_THREADS_PER_BLOCK>>>(mat->data_device, target->data_device, len);
+
+    cudaThreadSynchronize();
+
+    if (checkCUDAError())
+        return CUDA_ERROR;
+
+    return 0;
+}
+
 extern int apply_log(cudamat* mat, cudamat* target) {
     unsigned int len = mat->size[0] * mat->size[1];
 
@@ -747,6 +766,22 @@ extern int reciprocal(cudamat* mat, cudamat* target) {
     if (checkCUDAError())
         return CUDA_ERROR;
 
+    return 0;
+}
+
+extern int add_float_to_row(cudamat* mat, cudamat* index_mat, float scalar) {
+    int num_cols = mat->size[1];
+    int num_rows = mat->size[0];
+
+    if (!mat->on_device || !index_mat->on_device)
+        return ERROR_NOT_ON_DEVICE;
+
+    if (index_mat->size[1] != 1 || mat->size[0] != index_mat->size[0])
+       return ERROR_INCOMPATIBLE_DIMENSIONS;
+
+    for (int i = 0; i < num_rows; i++)
+    	mat->data_device[num_cols + (i * (int) index_mat->data_device[i])] += scalar;
+    
     return 0;
 }
 
@@ -1068,5 +1103,57 @@ extern int clip(cudamat* mat, float min_val, float max_val, cudamat* target) {
     return 0;
 }
 
+extern int update_by_row_scalar(cudamat* mat, cudamat* vec, cudamat* target, float scalar, unsigned int height, unsigned int width) {
+
+	if (!mat->on_device || !target->on_device)
+		return ERROR_NOT_ON_DEVICE;
+	
+	if (target->size[0] != mat->size[0] || target->size[1] != mat->size[1] || vec->size[0] != height || vec->size[1] != 1)
+		return ERROR_INCOMPATIBLE_DIMENSIONS;
+	
+	kUpdateElemPerRowByScalar<<<NUM_VECTOR_OP_BLOCKS, NUM_VECTOR_OP_THREADS_PER_BLOCK>>>(mat->data_device, vec->data_device, target->data_device, scalar, width, height);
+	cudaThreadSynchronize();
+	
+	if (checkCUDAError())
+		return CUDA_ERROR;
+	
+	return 0;
+}
+
+extern int update_by_dsigmoid(cudamat* hiddens, cudamat* out) {
+	unsigned int len = hiddens->size[0] * hiddens->size[1];
+	
+	if (!hiddens->on_device || !out->on_device)
+		return ERROR_NOT_ON_DEVICE;
+		
+	if (hiddens->size[0] != out->size[0] || hiddens->size[1] != out->size[1])
+		return ERROR_INCOMPATIBLE_DIMENSIONS;
+	kUpdateByDSigmoid<<<NUM_VECTOR_OP_BLOCKS, NUM_VECTOR_OP_THREADS_PER_BLOCK>>>(hiddens->data_device, out->data_device, len);
+	cudaThreadSynchronize();
+		
+	if (checkCUDAError())
+		return CUDA_ERROR;
+		
+	return 0;	
+
+}
+
+extern int mult_by_dtanh(cudamat* hiddens, cudamat* out) {
+	unsigned int len = hiddens->size[0] * hiddens->size[1];
+	
+	if (!hiddens->on_device || !out->on_device)
+		return ERROR_NOT_ON_DEVICE;
+		
+	if (hiddens->size[0] != out->size[0] || hiddens->size[1] != out->size[1])
+		return ERROR_INCOMPATIBLE_DIMENSIONS;
+	kMultByDTanh<<<NUM_VECTOR_OP_BLOCKS, NUM_VECTOR_OP_THREADS_PER_BLOCK>>>(hiddens->data_device, out->data_device, len);
+	cudaThreadSynchronize();
+		
+	if (checkCUDAError())
+		return CUDA_ERROR;
+		
+	return 0;	
+
+}
 
 }
