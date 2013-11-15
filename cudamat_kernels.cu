@@ -198,11 +198,10 @@ __global__ void kApplySigmoid(float* mat, float* target, unsigned int len) {
 __global__ void kApplyTanh(float* mat, float* target, unsigned int len) {
     const unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int numThreads = blockDim.x * gridDim.x;
-    float ex_plus, ex_minus; 
+    float exp_two_minus; 
     for (unsigned int i = idx; i < len; i += numThreads) {
-    	ex_plus = __expf(mat[i]);
-    	ex_minus = __expf(-mat[i]);
-        target[i] = (ex_plus - ex_minus) / (ex_plus + ex_minus);
+    	exp_two_minus = __expf(-2 * mat[i]);
+        target[i] = (1 - exp_two_minus) / (1 + exp_two_minus);
     }
 }
 
