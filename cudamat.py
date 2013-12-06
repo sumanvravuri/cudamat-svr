@@ -414,13 +414,43 @@ class CUDAMatrix(object):
 
         if not target:
             target = self
-
+            
         err_code = _cudamat.add_row_vec(self.p_mat, vec.p_mat, target.p_mat)
         if err_code:
             raise generate_exception(err_code)
 
         return target
+
+    def add_row_mult(self, vec, mult, target = None):
+        """
+        Add a multiple of vector vec to every column of the matrix. If a target
+        is provided, it is used to store the result instead of self.
+        """
+
+        if not target:
+            target = self
+
+        err_code = _cudamat.add_row_mult(self.p_mat, vec.p_mat, target.p_mat, ct.c_float(mult))
+        if err_code:
+            raise generate_exception(err_code)
+
+        return target
         
+    def div_by_row(self, vec, target = None):
+        """
+        Multiply vector vec into every column of the matrix. If a target is
+        provided, it is used to store the result instead of self.
+        """
+
+        if not target:
+            target = self
+
+        err_code = _cudamat.div_by_row_vec(self.p_mat, vec.p_mat, target.p_mat)
+        if err_code:
+            raise generate_exception(err_code)
+
+        return target
+
     def mult_by_col(self, vec, target = None):
         """
         Multiply vector vec into every column of the matrix. If a target is
@@ -460,7 +490,7 @@ class CUDAMatrix(object):
 
         return sum(self, axis, target)
 
-    def add_sums(self, mat, axis, mult = 1.):
+    def add_sums(self, mat, axis, mult = 1., self_scalar = 1.):
         """
         Add a multiple of the sums of the matrix mat along the given dimension
         to self. 
@@ -480,7 +510,7 @@ class CUDAMatrix(object):
             left = mat
             right = CUDAMatrix.ones.slice(0, n)
 
-        err_code = _cudamat.dot(left.p_mat, right.p_mat, self.p_mat, ct.c_float(1.), ct.c_float(mult))
+        err_code = _cudamat.dot(left.p_mat, right.p_mat, self.p_mat, ct.c_float(self_scalar), ct.c_float(mult))
         if err_code:
             raise generate_exception(err_code)
 
@@ -526,7 +556,7 @@ class CUDAMatrix(object):
         """
         Find the maximum value along the given dimension, where 0 represents the
         leading dimension and 1 represents the non-leading dimension. If a target
-        is not prvided, a new vector is created for storing the result.
+        is not provided, a new vector is created for storing the result.
         """
 
         m, n = self.shape
@@ -917,6 +947,22 @@ def sigmoid(mat, target = None):
 
     return target
 
+def softmax_by_column(mat, target = None): #added by Suman Ravuri
+    """
+    Apply softmax function to each column of matrix mat
+    """
+    
+    if not target:
+        target = mat
+    assert mat.shape == target.shape
+    
+    vec_val = mat.max(axis = 0)
+    mat.add_row_mult(vec_val, -1.0, target)
+    exp(target, target)
+    target.sum(axis = 0, target = vec_val)
+    target.div_by_row(vec_val)
+    del vec_val
+
 def update_by_dsigmoid(hidden, out):
     """ out = out + hidden * (1 - hidden)
     """
@@ -1043,6 +1089,7 @@ def clip(mat, min_val, max_val, target = None):
         raise generate_exception(err_code)
     
     return target
+
 def update_by_row_scalar(mat, vec, scalar, height, width, target = None):
     """
     given a matrix mat of size n x d and index_mat of n x 1 with ints from 0 to d-1

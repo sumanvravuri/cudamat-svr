@@ -921,7 +921,23 @@ class garray(object):
 		if self._base.shape != other._base.shape:
 		    other._base.reshape(self._base.shape)
 		self._base.add_mult(other._base, scalar)
+		
+	def add_sums(self, other, axis, scalar = 1.0, self_scalar = 1.0): #hack with axes here because cudamat is transposed, added Suman Ravuri
+		if axis == 0:
+			axis = 1
+		elif axis == 1:
+			axis = 0
+		self._base.add_sums(other._base_as_2d(), axis, scalar, self_scalar)
+	
+	def add_row_vec(self, vec, target = None): #added Suman Ravuri
+		if target == None:
+			target = self
+		self._base_as_2d().add_col_vec(vec._base_as_row(), target._base_as_2d()) #hack because cudamat stores this in transposed format
 
+	def add_row_mult(self, vec, scalar = 1.0, target = None): #added Suman Ravuri
+		if target == None:
+			target = self
+		self._base_as_2d().add_col_mult(vec._base_as_row(), scalar, target._base_as_2d()) #hack because cudamat stores this in transposed format	
 	# ------------------------------------------------------------------------------- elementwise type checking
 	
 	def all_real(self):
